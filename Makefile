@@ -147,6 +147,9 @@ clean:
         $U/usys.S \
 	$(UPROGS)
 
+submit:
+	tar --exclude-from="exclude.txt" -cvf project.tar .
+
 # try to generate a unique GDB port
 GDBPORT = $(shell expr `id -u` % 5000 + 25000)
 # QEMU's gdb stub command line changed in 0.11
@@ -171,24 +174,3 @@ qemu: $K/kernel fs.img
 qemu-gdb: $K/kernel .gdbinit fs.img
 	@echo "*** Now run 'gdb' in another window." 1>&2
 	$(QEMU) $(QEMUOPTS) -S $(QEMUGDB)
-
-
-##
-## FOR testing lab grading script
-##
-
-
-ifneq ($(V),@)
-GRADEFLAGS += -v
-endif
-
-print-gdbport:
-	@echo $(GDBPORT)
-
-grade:
-	@echo $(MAKE) clean
-	@$(MAKE) clean || \
-          (echo "'make clean' failed.  HINT: Do you have another running instance of xv6?" && exit 1)
-	./grade-lab-$(LAB).py $(GRADEFLAGS)
-
-
