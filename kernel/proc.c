@@ -125,13 +125,20 @@ found:
   p->pid = allocpid();
   p->state = USED;
 
-  // Allocate a trapframe page.
-  if((p->trapframe = (struct trapframe *)kalloc()) == 0){
+  // Allocate a trapframe page and signal queue
+  if(!(p->trapframe = (struct trapframe *)kalloc()) ||
+     !(p->signal_handlers = (signal_handler_t *)kalloc()) ||
+     !(p->signal_queue = (struct signal *)kalloc())) {
     freeproc(p);
     release(&p->lock);
     return 0;
   }
-
+  
+  p->signal_read_cursor = -1;
+  memset(p->signal_handlers, 0, PGSIZE);
+  p->signal_handlers[SIGNAL_ALARM] = signal_handler_ignore;
+  p->signal_handlers[SIGNAL_MESSAGE] = signal_handler_ignore;
+  
   // An empty user page table.
   p->pagetable = proc_pagetable(p);
   if(p->pagetable == 0){
@@ -158,6 +165,14 @@ freeproc(struct proc *p)
   if(p->trapframe)
     kfree((void*)p->trapframe);
   p->trapframe = 0;
+  if(p->signal_handlers)
+    kfree((void*)p->signal_handlers);
+  p->signal_handlers = 0;
+  if(p->signal_queue)
+    kfree((void*)p->signal_queue);
+  p->signal_queue = 0;
+  p->signal_read_cursor = 0;
+  p->signal_write_cursor = 0;
   if(p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);
   p->pagetable = 0;

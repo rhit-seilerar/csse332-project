@@ -8,6 +8,7 @@ struct spinlock;
 struct sleeplock;
 struct stat;
 struct superblock;
+struct signal;
 
 // bio.c
 void            binit(void);
@@ -109,6 +110,10 @@ void            procdump(void);
 
 // swtch.S
 void            swtch(struct context*, struct context*);
+
+// signal.c
+int             signal_handler_ignore(struct signal);
+int             signal_handler_terminate(struct signal);
 
 // spinlock.c
 void            acquire(struct spinlock*);
