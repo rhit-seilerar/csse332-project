@@ -10,3 +10,7 @@ SIGNAL_HANDLER(signal_handler_ignore) {
 SIGNAL_HANDLER(signal_handler_terminate) {
   return 0;
 }
+
+SIGNAL_HANDLER(signal_handler_KILL) {
+  return 0;
+}

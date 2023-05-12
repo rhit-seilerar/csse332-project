@@ -134,10 +134,17 @@ found:
     return 0;
   }
   
+  //
+  // Initialize the signal handlers
+  //
   p->signal_read_cursor = -1;
   memset(p->signal_handlers, 0, PGSIZE);
-  p->signal_handlers[SIGNAL_ALARM] = signal_handler_ignore;
-  p->signal_handlers[SIGNAL_MESSAGE] = signal_handler_ignore;
+  #define UNCATCHABLE_SIGNAL(name)
+  #define CATCHABLE_SIGNAL(name, handler) \
+    p->signal_handlers[SIGNAL_##name] = signal_handler_##handler;
+  SIGNALS
+  #undef CATCHABLE_SIGNAL
+  #undef UNCATCHABLE_SIGNAL
   
   // An empty user page table.
   p->pagetable = proc_pagetable(p);
