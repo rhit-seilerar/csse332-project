@@ -89,3 +89,10 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64
+sys_send_signal(void)
+{
+  struct proc *p = myproc();
+  return send_signal(p->trapframe->a0, p->trapframe->a1, (void*)p->trapframe->a2);
+}

@@ -1,5 +1,3 @@
-#include "signal.h"
-
 // Saved registers for kernel context switches.
 struct context {
   uint64 ra;
@@ -93,11 +91,7 @@ struct proc {
   int killed;                  // If non-zero, have been killed
   int xstate;                  // Exit status to be returned to parent's wait
   int pid;                     // Process ID
-  
-  signal_handler_t *signal_handlers;
-  struct signal *signal_queue;
-  int signal_read_cursor;
-  int signal_write_cursor;
+  struct signaling *signaling;
 
   // wait_lock must be held when using this:
   struct proc *parent;         // Parent process

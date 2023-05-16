@@ -1,8 +1,10 @@
-typedef int pid_t;
+#include "param.h"
+#include "spinlock.h"
+#include "proc.h"
 
 typedef struct signal {
   int type;
-  pid_t sender;
+  int sender_pid;
   void *message;
 } signal_t;
 
@@ -53,3 +55,20 @@ enum signal_flags {
 #define MAX_SIGNALS (PGSIZE / sizeof(struct signal))
 #define MAX_CATCHABLE (PGSIZE / sizeof(signal_handler_t))
 _Static_assert(SIGNAL_CATCHABLE_COUNT <= MAX_CATCHABLE, "too many signals are defined");
+
+typedef struct signaling {
+  // Modified by kernel
+  signal_t queue[MAX_SIGNALS];
+  
+  // Modified by user
+  signal_handler_t handlers[MAX_CATCHABLE];
+  int read;
+  int write;
+  int num_to_handle;
+  
+  // Modified by kernel
+  int count;
+  struct context *return_to;
+  struct context handle_at;
+  int can_interrupt;
+} signaling_t;

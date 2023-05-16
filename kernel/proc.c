@@ -125,26 +125,12 @@ found:
   p->pid = allocpid();
   p->state = USED;
 
-  // Allocate a trapframe page and signal queue
-  if(!(p->trapframe = (struct trapframe *)kalloc()) ||
-     !(p->signal_handlers = (signal_handler_t *)kalloc()) ||
-     !(p->signal_queue = (struct signal *)kalloc())) {
+  // Allocate a trapframe page
+  if(!(p->trapframe = (struct trapframe *)kalloc())) {
     freeproc(p);
     release(&p->lock);
     return 0;
   }
-  
-  //
-  // Initialize the signal handlers
-  //
-  p->signal_read_cursor = -1;
-  memset(p->signal_handlers, 0, PGSIZE);
-  #define UNCATCHABLE_SIGNAL(name)
-  #define CATCHABLE_SIGNAL(name, handler) \
-    p->signal_handlers[SIGNAL_##name] = signal_handler_##handler;
-  SIGNALS
-  #undef CATCHABLE_SIGNAL
-  #undef UNCATCHABLE_SIGNAL
   
   // An empty user page table.
   p->pagetable = proc_pagetable(p);
@@ -172,14 +158,6 @@ freeproc(struct proc *p)
   if(p->trapframe)
     kfree((void*)p->trapframe);
   p->trapframe = 0;
-  if(p->signal_handlers)
-    kfree((void*)p->signal_handlers);
-  p->signal_handlers = 0;
-  if(p->signal_queue)
-    kfree((void*)p->signal_queue);
-  p->signal_queue = 0;
-  p->signal_read_cursor = 0;
-  p->signal_write_cursor = 0;
   if(p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);
   p->pagetable = 0;
@@ -223,7 +201,7 @@ proc_pagetable(struct proc *p)
     uvmfree(pagetable, 0);
     return 0;
   }
-
+  
   return pagetable;
 }
 
@@ -482,6 +460,11 @@ scheduler(void)
         // before jumping back to us.
         p->state = RUNNING;
         c->proc = p;
+        
+        // p->signaling->can_interrupt = 0;
+        // swtch(&c->context, );
+        // p->signaling->can_interrupt = 1;
+        
         swtch(&c->context, &p->context);
 
         // Process is done running for now.
@@ -702,4 +685,8 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+
+int send_signal(int type, int sender_pid, void *message) {
+  return 0;
 }
