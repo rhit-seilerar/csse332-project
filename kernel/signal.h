@@ -58,10 +58,10 @@ _Static_assert(SIGNAL_CATCHABLE_COUNT <= MAX_CATCHABLE, "too many signals are de
 
 typedef struct signaling {
   // Modified by kernel
-  signal_t queue[MAX_SIGNALS];
+  signal_t queue[MAX_SIGNALS] __attribute__((aligned(PGSIZE)));
   
   // Modified by user
-  signal_handler_t handlers[MAX_CATCHABLE];
+  signal_handler_t handlers[MAX_CATCHABLE] __attribute__((aligned(PGSIZE)));
   int read;
   int write;
   int num_to_handle;

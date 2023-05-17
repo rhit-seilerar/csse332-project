@@ -15,7 +15,7 @@ SIGNALS
 #undef CATCHABLE_SIGNAL
 #undef UNCATCHABLE_SIGNAL
 
-signaling_t s = {
+static signaling_t s = {
   .handlers = {
     #define UNCATCHABLE_SIGNAL(name)
     #define CATCHABLE_SIGNAL(name, handler) \
