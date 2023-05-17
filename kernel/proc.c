@@ -5,6 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "signal.h"
 
 struct cpu cpus[NCPU];
 
@@ -688,5 +689,28 @@ procdump(void)
 }
 
 int send_signal(int type, int sender_pid, int receiver_pid) {
-  return 0;
+  struct proc* receiving_proc = 0;
+  for (int i = 0; i < NPROC; i++) {
+    if (proc[i].pid == receiver_pid) {
+      receiving_proc = &proc[i];
+    }
+  }
+  if (receiving_proc == 0) {
+    return 0;
+  }
+
+  signal_t new_signal;
+  new_signal.sender_pid = sender_pid;
+  new_signal.type = type;
+
+  if ((receiving_proc->signaling->write + 1) % MAX_SIGNALS < receiving_proc->signaling->read) {
+    receiving_proc->signaling->queue[receiving_proc->signaling->write] = new_signal;
+  } else {
+    return 0;
+  }
+  if (++receiving_proc->signaling->write == MAX_SIGNALS) {
+    receiving_proc->signaling->count = 0;
+  }
+
+  return 1;
 }

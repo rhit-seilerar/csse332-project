@@ -1,6 +1,3 @@
-#include "param.h"
-#include "spinlock.h"
-#include "proc.h"
 
 typedef struct signal {
   int type;
