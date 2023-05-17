@@ -86,7 +86,7 @@ void            printfinit(void);
 int             cpuid(void);
 void            exit(int);
 int             fork(void);
-int             send_signal(int type, int sender_pid, void *message);
+int             send_signal(int type, int sender_pid, int receiver_pid);
 int             growproc(int);
 void            proc_mapstacks(pagetable_t);
 pagetable_t     proc_pagetable(struct proc *);
