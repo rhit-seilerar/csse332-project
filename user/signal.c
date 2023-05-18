@@ -2,6 +2,9 @@
 #include "user.h"
 #include "../kernel/riscv.h"
 // #include "defs.h"
+#include "../kernel/param.h"
+#include "../kernel/spinlock.h"
+#include "../kernel/proc.h"
 #include "../kernel/signal.h"
 
 // These functions are mapped into userspace 

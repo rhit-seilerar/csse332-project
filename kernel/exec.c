@@ -19,15 +19,22 @@ int flags2perm(int flags)
     return perm;
 }
 
+int exec_strcmp(char *a, char *b) {
+  while(*a && *a == *b) a++, b++;
+  return *a - *b;
+}
+
 int
 exec(char *path, char **argv)
 {
-  char *s, *last;
+  char *s, *last, *strings;
   int i, off;
   uint64 argc, sz = 0, sp, ustack[MAXARG], stackbase;
   struct elfhdr elf;
   struct inode *ip;
   struct proghdr ph;
+  // struct secthdr sh, shstrsh;
+  struct secthdr shstrsh;
   pagetable_t pagetable = 0, oldpagetable;
   struct proc *p = myproc();
 
@@ -68,6 +75,34 @@ exec(char *path, char **argv)
     if(loadseg(pagetable, ph.vaddr, ip, ph.off, ph.filesz) < 0)
       goto bad;
   }
+  
+  // Get the section header string table
+  if(readi(ip, 0, (uint64)&shstrsh, elf.shoff+elf.shstrndx*elf.shentsize, sizeof(shstrsh)) != sizeof(shstrsh))
+    goto bad;
+  if(shstrsh.type != SHT_STRTAB)
+    goto bad;
+  printf("flags: %x\n", shstrsh.flags);
+  if(!(shstrsh.flags & SHF_STRINGS))
+    goto bad;
+  printf("Expected size: %d\n", shstrsh.size);
+  printf("Found size: %d\n", readi(ip, 0, (uint64)&strings, shstrsh.offset, shstrsh.size));
+  // if(readi(ip, 0, (uint64)&strings, shstrsh.offset, shstrsh.size) != shstrsh.size)
+  //   goto bad;
+  // if(exec_strcmp(strings+shstrsh.name, ".shstrtab") != 0)
+  //   goto bad;
+  
+  // // Look for signal.c's 's' in .data
+  // for(i=0, off=elf.shoff; i<elf.shnum; i++, off+=elf.shentsize){
+  //   if(readi(ip, 0, (uint64)&sh, off, sizeof(sh)) != sizeof(sh))
+  //     goto bad;
+  //   if(strcmp(strings+sh.name, "."))
+  //   if(sh.type != SHT_STRTAB)
+  //     goto bad;
+  //   if(!(sh.flags & SHF_STRINGS))
+  //     goto bad;
+  //   
+  // }
+  
   iunlockput(ip);
   end_op();
   ip = 0;
