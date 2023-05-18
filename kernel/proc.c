@@ -699,6 +699,8 @@ int send_signal(int type, int sender_pid, int receiver_pid) {
     return 0;
   }
 
+  acquire(&(receiving_proc->lock));
+
   signal_t new_signal;
   new_signal.sender_pid = sender_pid;
   new_signal.type = type;
@@ -711,6 +713,8 @@ int send_signal(int type, int sender_pid, int receiver_pid) {
   if (++receiving_proc->signaling->write == MAX_SIGNALS) {
     receiving_proc->signaling->count = 0;
   }
+
+  release(&(receiving_proc->lock));
 
   return 1;
 }
