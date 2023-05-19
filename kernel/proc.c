@@ -5,7 +5,6 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
-#include "signal.h"
 
 struct cpu cpus[NCPU];
 
@@ -435,6 +434,18 @@ wait(uint64 addr)
   }
 }
 
+SIGNAL_HANDLER(signal_handler_ignore) {
+  return 0;
+}
+
+SIGNAL_HANDLER(signal_handler_terminate) {
+  return kill(mycpu()->proc->pid);
+}
+
+SIGNAL_HANDLER(signal_handler_KILL) {
+  return kill(mycpu()->proc->pid);
+}
+
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
@@ -454,6 +465,8 @@ scheduler(void)
     intr_on();
 
     for(p = proc; p < &proc[NPROC]; p++) {
+      int cont = 0;
+      
       acquire(&p->lock);
       if(p->state == RUNNABLE) {
         // Switch to chosen process.  It is the process's job
@@ -462,11 +475,51 @@ scheduler(void)
         p->state = RUNNING;
         c->proc = p;
         
-        // p->signaling->can_interrupt = 0;
-        // swtch(&c->context, );
-        // p->signaling->can_interrupt = 1;
+        if(p->signaling.count) {
+          struct trapframe tf = *p->trapframe;
+          struct context ctx = p->context;
+          
+          while(p->signaling.count > 0) {
+            signal_t signal = p->signaling.queue[p->signaling.read];
+            int result;
+            switch(signal.type) {
+              // Specially handle the uncatchable signals
+              #define CATCHABLE_SIGNAL(...)
+              #define UNCATCHABLE_SIGNAL(name) \
+              case SIGNAL_##name: result = signal_handler_##name(signal); break;
+              SIGNALS
+              #undef UNCATCHABLE_SIGNAL
+              #undef CATCHABLE_SIGNAL
+              
+              // Dispatch catchable signals
+              default: {
+                p->trapframe = (struct trapframe){
+                  .epc = p->signaling.handlers[signal.type].proc;
+                  .ra = (uint64)&signalret;
+                  .sp = p->signaling.handlers[signal.type].stack;
+                  .gp = tf.gp;
+                  .a0 = signal.type;
+                  .a1 = signal.pid;
+                };
+                swtch(&c->context, &p->context);
+                p->context = ctx;
+                result = p->trapframe->a2;
+              }
+            }
+            
+            p->signaling.read = (p->signaling.read+1) % MAX_SIGNALS;
+            p->signaling.count--;
+            
+            if(p->killed || p->state == ZOMBIE) {
+              cont = 1;
+              break;
+            }
+          }
+          
+          *p->trapframe = tf;
+        }
         
-        swtch(&c->context, &p->context);
+        if(!cont) swtch(&c->context, &p->context);
 
         // Process is done running for now.
         // It should have changed its p->state before coming back.
@@ -705,13 +758,13 @@ int send_signal(int type, int sender_pid, int receiver_pid) {
   new_signal.sender_pid = sender_pid;
   new_signal.type = type;
 
-  if ((receiving_proc->signaling->write + 1) % MAX_SIGNALS < receiving_proc->signaling->read) {
-    receiving_proc->signaling->queue[receiving_proc->signaling->write] = new_signal;
+  if ((receiving_proc->signaling.write + 1) % MAX_SIGNALS < receiving_proc->signaling.read) {
+    receiving_proc->signaling.queue[receiving_proc->signaling.write] = new_signal;
   } else {
     return 0;
   }
-  if (++receiving_proc->signaling->write == MAX_SIGNALS) {
-    receiving_proc->signaling->count = 0;
+  if (++receiving_proc->signaling.write == MAX_SIGNALS) {
+    receiving_proc->signaling.count = 0;
   }
 
   release(&(receiving_proc->lock));

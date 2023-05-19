@@ -9,6 +9,8 @@
 
 // These functions are mapped into userspace 
 
+
+
 void handle_signals(void);
 SIGNAL_HANDLER(signal_handler_ignore);
 SIGNAL_HANDLER(signal_handler_terminate);
@@ -18,7 +20,7 @@ SIGNALS
 #undef CATCHABLE_SIGNAL
 #undef UNCATCHABLE_SIGNAL
 
-static signaling_t s = {
+signaling_t s = {
   .handlers = {
     #define UNCATCHABLE_SIGNAL(name)
     #define CATCHABLE_SIGNAL(name, handler) \

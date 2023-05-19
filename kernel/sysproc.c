@@ -90,9 +90,11 @@ sys_uptime(void)
   return xticks;
 }
 
+uint64 sys_yield(void) { return yield(), 0; }
+
 uint64
 sys_send_signal(void)
 {
   struct proc *p = myproc();
-  return send_signal(p->trapframe->a0, p->trapframe->a1, p->trapframe->a2);
+  return send_signal(p->trapframe->a0, p->trapframe->a1, p->pid);
 }

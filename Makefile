@@ -93,7 +93,7 @@ ULIB = \
 	$U/usys.o \
 	$U/printf.o \
 	$U/umalloc.o \
-	$U/signal.o
+	# $U/signal.o
 
 _%: %.o $(ULIB)
 	$(LD) $(LDFLAGS) -T $U/user.ld -o $@ $^

@@ -2,7 +2,6 @@
 typedef struct signal {
   int type;
   int sender_pid;
-  void *message;
 } signal_t;
 
 #define SIGNAL_HANDLER(name) int name(signal_t signal)
@@ -49,23 +48,17 @@ enum signal_flags {
   SIGNAL_CATCHABLE   = 0b010,
 };
 
-#define MAX_SIGNALS (PGSIZE / sizeof(struct signal))
-#define MAX_CATCHABLE (PGSIZE / sizeof(signal_handler_t))
+#define MAX_SIGNALS 512
+#define MAX_CATCHABLE 256
 _Static_assert(SIGNAL_CATCHABLE_COUNT <= MAX_CATCHABLE, "too many signals are defined");
 
 typedef struct signaling {
-  // Modified by kernel
-  signal_t queue[MAX_SIGNALS] __attribute__((aligned(PGSIZE)));
-  
-  // Modified by user
-  signal_handler_t handlers[MAX_CATCHABLE] __attribute__((aligned(PGSIZE)));
+  signal_t queue[MAX_SIGNALS];
+  struct {
+    signal_handler_t proc;
+    void *stack;
+  } handlers[MAX_CATCHABLE];
   int read;
   int write;
-  int num_to_handle;
-  
-  // Modified by kernel
   int count;
-  struct context *return_to;
-  struct context handle_at;
-  int can_interrupt;
 } signaling_t;

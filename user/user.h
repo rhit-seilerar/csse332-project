@@ -22,6 +22,7 @@ int getpid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
+void yield(void);
 int send_signal(int type, int sender_pid, int receiver_pid);
 
 // ulib.c
