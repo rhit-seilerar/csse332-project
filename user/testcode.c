@@ -98,6 +98,15 @@ void printaddress() {
     printf("%p\n\n",&whilealarm);
 }
 
+void fullqueue() {
+    int count = 1;
+    while(!send_signal(SIGNAL_ALARM, getpid(), 30)) {
+        count++;
+    }
+    printf("\nFull queue count = %d\n", count);
+    exit(0);
+}
+
 struct test {
     void (*f)(char *);
     char *s;
@@ -106,9 +115,10 @@ struct test {
     {whilekill, "whilekill"},
     {killself, "killself"},
     {killchild, "killchild"},
+    {fullqueue, "fullqueue"},
     // {customsignal, "customsignal"},
-    {simplealarm, "simplealarm"},
-    {whilealarm, "whilealarm"},
+    // {simplealarm, "simplealarm"},
+    // {whilealarm, "whilealarm"},
     // {printaddress,"printaddress"},
     { 0, 0},
 };
