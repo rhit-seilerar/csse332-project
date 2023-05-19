@@ -813,7 +813,7 @@ int alarm(struct proc *alarmed_proc, unsigned int seconds) {
   acquire(&(tickslock));
   if (alarmed_proc->alarm_set == 1) {
     alarmed_proc->alarm_set = 0;
-    remaining_seconds = alarmed_proc->ticks_at_alarm - ticks;
+    remaining_seconds = (alarmed_proc->ticks_at_alarm - ticks) / 10;
   } else {
     alarmed_proc->alarm_set = 1;
     alarmed_proc->ticks_at_alarm = seconds * 10 + ticks;
