@@ -135,6 +135,7 @@ UPROGS=\
 	$U/_sh\
 	$U/_signaltest\
 	$U/_stressfs\
+	$U/_testcode\
 	$U/_usertests\
 	$U/_grind\
 	$U/_wc\
