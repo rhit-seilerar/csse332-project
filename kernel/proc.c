@@ -487,7 +487,6 @@ scheduler(void)
     intr_on();
 
     for(p = proc; p < &proc[NPROC]; p++) {
-      int cont = 0;
       
       acquire(&p->lock);
       if(p->state == RUNNABLE) {
@@ -511,6 +510,7 @@ scheduler(void)
           
           while(p->signaling.count > 0) {
             signal_t signal = p->signaling.queue[p->signaling.read];
+            
             int result;
             switch(signal.type) {
               // Specially handle the uncatchable signals
@@ -540,21 +540,15 @@ scheduler(void)
             p->signaling.read = (p->signaling.read+1) % MAX_SIGNALS;
             p->signaling.count--;
             
-            if(!result) {
-              kill(mycpu()->proc->pid);
-            }
-            
-            if(p->killed || p->state == ZOMBIE) {
-              cont = 1;
-              break;
-            }
+            if(result) p->killed = 1;
+            if(p->killed || p->state == ZOMBIE) break;
           }
           
           *p->trapframe = tf;
         }
         
-        if(!cont) swtch(&c->context, &p->context);
-
+        swtch(&c->context, &p->context);
+        
         // Process is done running for now.
         // It should have changed its p->state before coming back.
         c->proc = 0;
@@ -783,26 +777,31 @@ int send_signal(int type, int sender_pid, int receiver_pid) {
     }
   }
   if (receiving_proc == 0) {
-    return 0;
+    return 2;
+  }
+  
+  if(sender_pid != receiver_pid) {
+    acquire(&(receiving_proc->lock));
   }
 
-  acquire(&(receiving_proc->lock));
+  signal_t new_signal = {
+    .type = type,
+    .sender_pid = sender_pid,
+  };
 
-  signal_t new_signal;
-  new_signal.sender_pid = sender_pid;
-  new_signal.type = type;
-
-  if ((receiving_proc->signaling.write + 1) % MAX_SIGNALS < receiving_proc->signaling.read) {
+  if (receiving_proc->signaling.count+1 < MAX_SIGNALS) {
     receiving_proc->signaling.queue[receiving_proc->signaling.write] = new_signal;
+    receiving_proc->signaling.write = (receiving_proc->signaling.write + 1) % MAX_SIGNALS;
     receiving_proc->signaling.count++;
   } else {
     // Queue full, new signal failed to be added
     return 1;
   }
 
-
-  release(&(receiving_proc->lock));
-
+  if(sender_pid != receiver_pid) {
+    release(&(receiving_proc->lock));
+  }
+  
   return 0;
 }
 
