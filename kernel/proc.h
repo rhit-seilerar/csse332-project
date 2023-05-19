@@ -1,3 +1,6 @@
+#ifndef _INCLUDE_KERNEL_PROC_H_
+#define _INCLUDE_KERNEL_PROC_H_
+
 #include "signal.h"
 
 // Saved registers for kernel context switches.
@@ -108,3 +111,5 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
 };
+
+#endif

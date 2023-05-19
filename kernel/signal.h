@@ -1,7 +1,10 @@
+#ifndef _INCLUDE_KERNEL_SIGNAL_H_
+#define _INCLUDE_KERNEL_SIGNAL_H_
 
 typedef struct signal {
   int type;
   int sender_pid;
+  uint64 payload;
 } signal_t;
 
 #define SIGNAL_HANDLER(name) int name(signal_t signal)
@@ -42,21 +45,14 @@ enum signal_type {
   SIGNAL_COUNT = SIGNAL_overshot_count - 1
 };
 
-// These are stored in the low 3 bits of the function pointers
-enum signal_flags {
-  SIGNAL_MASKED      = 0b001,
-  SIGNAL_CATCHABLE   = 0b010,
-};
-
 #define MAX_SIGNALS 512
-#define MAX_CATCHABLE 512
-_Static_assert(SIGNAL_CATCHABLE_COUNT <= MAX_CATCHABLE, "too many signals are defined");
-
 typedef struct signaling {
   signal_t queue[MAX_SIGNALS];
-  signal_handler_t handlers[MAX_CATCHABLE];
+  signal_handler_t handlers[SIGNAL_CATCHABLE_COUNT];
   void *stack;
   int read;
   int write;
   int count;
 } signaling_t;
+
+#endif

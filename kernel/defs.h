@@ -1,3 +1,5 @@
+#include "signal.h"
+
 struct buf;
 struct context;
 struct file;
@@ -8,7 +10,6 @@ struct spinlock;
 struct sleeplock;
 struct stat;
 struct superblock;
-struct signal;
 
 // bio.c
 void            binit(void);
@@ -86,7 +87,8 @@ void            printfinit(void);
 int             cpuid(void);
 void            exit(int);
 int             fork(void);
-int             send_signal(int type, int sender_pid, int receiver_pid);
+int             send_signal(signal_t signal, int receiver_pid);
+int             set_signal_handler(enum signal_type type, signal_handler_t new_handler);
 int             growproc(int);
 void            proc_mapstacks(pagetable_t);
 pagetable_t     proc_pagetable(struct proc *);

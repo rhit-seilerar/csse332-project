@@ -38,4 +38,5 @@ entry("sleep");
 entry("uptime");
 entry("yield");
 entry("send_signal");
+entry("set_signal_handler");
 entry("alarm");

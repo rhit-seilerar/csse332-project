@@ -5,29 +5,38 @@
 int pid;
 
 void killself(void) {
-  if(!(pid = fork())) {
-    send_signal(SIGNAL_KILL, getpid());
-    sleep(1);
-    printf("(killself) Self is alive\n");
+  if((pid = fork()) == 0) {
+    send_signal(SIGNAL_KILL, getpid(), 0);
+    sleep(2);
+    printf("(killself) Fail\n");
     exit(1);
-  } else {
-    wait(pid)
   }
 }
 
 void killchild(void) {
-  if(!(pid = fork())) {
-    sleep(1);
-    printf("(killchild) Child is alive\n");
+  if((pid = fork()) == 0) {
+    sleep(2);
+    printf("(killchild) Fail\n");
     exit(1);
   } else {
-    send_signal(SIGNAL_KILL, pid);
+    send_signal(SIGNAL_KILL, pid, 0);
   }
 }
 
+SIGNAL_HANDLER(print_message) {
+  printf("You got a message from %d: %d\n", signal.sender_pid, signal.payload);
+  yield();
+  return 0;
+}
+
 int main(int argc, char **argv) {
-  killself();
-  killchild();
+  // killself();
+  // killchild();
+  // 
+  // sleep(1);
+  
+  set_signal_handler(SIGNAL_MESSAGE, print_message);
+  send_signal(SIGNAL_MESSAGE, getpid(), 509);
   
   exit(0);
 }

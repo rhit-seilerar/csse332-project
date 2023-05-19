@@ -761,7 +761,13 @@ procdump(void)
   }
 }
 
-int send_signal(int type, int sender_pid, int receiver_pid) {
+int set_signal_handler(enum signal_type type, signal_handler_t handler) {
+  if(type < 0 || type >= SIGNAL_CATCHABLE_COUNT) return 1;
+  myproc()->signaling.handlers[type] = handler;
+  return 0;
+}
+
+int send_signal(signal_t signal, int receiver_pid) {
   struct proc* receiving_proc = 0;
   for (int i = 0; i < NPROC; i++) {
     if (proc[i].pid == receiver_pid) {
@@ -772,17 +778,12 @@ int send_signal(int type, int sender_pid, int receiver_pid) {
     return 2;
   }
   
-  if(sender_pid != receiver_pid) {
+  if(signal.sender_pid != receiver_pid) {
     acquire(&(receiving_proc->lock));
   }
 
-  signal_t new_signal = {
-    .type = type,
-    .sender_pid = sender_pid,
-  };
-
   if (receiving_proc->signaling.count+1 < MAX_SIGNALS) {
-    receiving_proc->signaling.queue[receiving_proc->signaling.write] = new_signal;
+    receiving_proc->signaling.queue[receiving_proc->signaling.write] = signal;
     receiving_proc->signaling.write = (receiving_proc->signaling.write + 1) % MAX_SIGNALS;
     receiving_proc->signaling.count++;
   } else {
@@ -790,7 +791,7 @@ int send_signal(int type, int sender_pid, int receiver_pid) {
     return 1;
   }
 
-  if(sender_pid != receiver_pid) {
+  if(signal.sender_pid != receiver_pid) {
     release(&(receiving_proc->lock));
   }
   

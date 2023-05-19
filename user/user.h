@@ -1,3 +1,5 @@
+#include "kernel/signal.h"
+
 struct stat;
 
 // system calls
@@ -23,7 +25,8 @@ char* sbrk(int);
 int sleep(int);
 int uptime(void);
 void yield(void);
-int send_signal(int type, int receiver_pid);
+int send_signal(enum signal_type type, int receiver_pid, uint64 payload);
+int set_signal_handler(enum signal_type type, signal_handler_t handler);
 int alarm(unsigned int seconds);
 
 // ulib.c

@@ -22,4 +22,5 @@
 #define SYS_close  21
 #define SYS_yield  22
 #define SYS_send_signal 23
-#define SYS_alarm 24
+#define SYS_set_signal_handler 24
+#define SYS_alarm 25
