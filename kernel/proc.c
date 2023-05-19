@@ -496,6 +496,14 @@ scheduler(void)
         // before jumping back to us.
         p->state = RUNNING;
         c->proc = p;
+
+        lock(&tickslock);
+        if (p->ticks_at_alarm >= ticks) {
+          release(&tickslock);
+          send_signal(SIGNAL_ALARM, p->pid, p->pid);
+        } else {
+          release(&tickslock);
+        }
         
         if(p->signaling.count) {
           struct trapframe tf = *p->trapframe;
@@ -798,6 +806,19 @@ int send_signal(int type, int sender_pid, int receiver_pid) {
   return 0;
 }
 
-int alarm(unsigned int seconds) {
-  return 0;
+int alarm(struct proc *alarmed_proc, unsigned int seconds) {
+  int remaining_seconds = 0;
+
+  acquire(&(alarmed_proc->lock));
+  acquire(&(tickslock));
+  if (alarmed_proc->alarm_set == 1) {
+    alarmed_proc->alarm_set = 0;
+    remaining_seconds = alarmed_proc->ticks_at_alarm - ticks;
+  } else {
+    alarmed_proc->alarm_set = 1;
+    alarmed_proc->ticks_at_alarm = seconds * 10 + ticks;
+  }
+  release(&(tickslock));
+  release(&(alarmed_proc->lock));
+  return remaining_seconds;
 }
