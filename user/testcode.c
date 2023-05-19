@@ -13,7 +13,7 @@ int pid;
 
 void killself() {
     if(!(pid = fork())) {
-        send_signal(SIGNAL_KILL, getpid());
+        send_signal(SIGNAL_KILL, getpid(), 0);
         sleep(1);
         printf("(killself) Self is alive\n");
         exit(1);
@@ -28,18 +28,18 @@ void killchild() {
         printf("(killchild) Child is alive\n");
         exit(1);
     } else {
-        send_signal(SIGNAL_KILL, pid);
+        send_signal(SIGNAL_KILL, pid, 0);
     }
 }
 
 void whilekill() {
-    send_signal(SIGNAL_KILL, getpid());
+    send_signal(SIGNAL_KILL, getpid(), 0);
     while(1) {}
     exit(1);
 }
 
 void simplekill() {
-    send_signal(SIGNAL_KILL, getpid());
+    send_signal(SIGNAL_KILL, getpid(), 0);
     sleep(2);
     exit(1);
 }

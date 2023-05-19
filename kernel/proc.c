@@ -500,7 +500,7 @@ scheduler(void)
         if (p->alarm_set && p->ticks_at_alarm >= ticks) {
           release(&tickslock);
           p->alarm_set = 0;
-          send_signal(SIGNAL_ALARM, p->pid, p->pid);
+          send_signal((signal_t){.type=SIGNAL_ALARM, .sender_pid=p->pid}, p->pid);
         } else {
           release(&tickslock);
         }
