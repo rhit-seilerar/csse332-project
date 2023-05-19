@@ -786,14 +786,14 @@ int send_signal(int type, int sender_pid, int receiver_pid) {
 
   if ((receiving_proc->signaling.write + 1) % MAX_SIGNALS < receiving_proc->signaling.read) {
     receiving_proc->signaling.queue[receiving_proc->signaling.write] = new_signal;
+    receiving_proc->signaling.count++;
   } else {
-    return 0;
+    // Queue full, new signal failed to be added
+    return 1;
   }
-  if (++receiving_proc->signaling.write == MAX_SIGNALS) {
-    receiving_proc->signaling.count = 0;
-  }
+
 
   release(&(receiving_proc->lock));
 
-  return 1;
+  return 0;
 }
