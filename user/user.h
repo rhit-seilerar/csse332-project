@@ -23,7 +23,7 @@ char* sbrk(int);
 int sleep(int);
 int uptime(void);
 void yield(void);
-int send_signal(int type, int sender_pid, int receiver_pid);
+int send_signal(int type, int receiver_pid);
 
 // ulib.c
 int stat(const char*, struct stat*);
