@@ -24,6 +24,7 @@ int sleep(int);
 int uptime(void);
 void yield(void);
 int send_signal(int type, int receiver_pid);
+int alarm(unsigned int seconds);
 
 // ulib.c
 int stat(const char*, struct stat*);

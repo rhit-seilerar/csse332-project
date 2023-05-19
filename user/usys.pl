@@ -38,3 +38,4 @@ entry("sleep");
 entry("uptime");
 entry("yield");
 entry("send_signal");
+entry("alarm");

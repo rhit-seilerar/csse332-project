@@ -23,4 +23,5 @@ enum sys_call_id {
   SYS_close,
   SYS_yield,
   SYS_send_signal,
+  SYS_alarm
 };

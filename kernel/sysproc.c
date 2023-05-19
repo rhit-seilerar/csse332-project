@@ -98,3 +98,7 @@ sys_send_signal(void)
   struct proc *p = myproc();
   return send_signal(p->trapframe->a0, p->pid, p->trapframe->a1);
 }
+
+uint64 sys_alarm(void) {
+  return alarm()
+}

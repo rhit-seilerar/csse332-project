@@ -771,3 +771,7 @@ int send_signal(int type, int sender_pid, int receiver_pid) {
 
   return 0;
 }
+
+int alarm(uint64 seconds) {
+
+}
