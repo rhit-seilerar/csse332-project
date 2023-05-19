@@ -11,7 +11,7 @@ void killself(void) {
     printf("(killself) Self is alive\n");
     exit(1);
   } else {
-    wait(pid)
+    wait(&pid);
   }
 }
 
