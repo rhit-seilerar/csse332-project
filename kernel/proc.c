@@ -496,7 +496,7 @@ scheduler(void)
         p->state = RUNNING;
         c->proc = p;
 
-        lock(&tickslock);
+        acquire(&tickslock);
         if (p->ticks_at_alarm >= ticks) {
           release(&tickslock);
           send_signal(SIGNAL_ALARM, p->pid, p->pid);
