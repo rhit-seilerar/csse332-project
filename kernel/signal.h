@@ -42,12 +42,6 @@ enum signal_type {
   SIGNAL_COUNT = SIGNAL_overshot_count - 1
 };
 
-// These are stored in the low 3 bits of the function pointers
-enum signal_flags {
-  SIGNAL_MASKED      = 0b001,
-  SIGNAL_CATCHABLE   = 0b010,
-};
-
 #define MAX_SIGNALS 512
 #define MAX_CATCHABLE 512
 _Static_assert(SIGNAL_CATCHABLE_COUNT <= MAX_CATCHABLE, "too many signals are defined");
