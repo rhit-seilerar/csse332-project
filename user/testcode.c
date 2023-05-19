@@ -34,28 +34,28 @@ void killchild() {
 
 void whilekill() {
     send_signal(SIGNAL_KILL, getpid());
-    while(1) {}
+    sleep(1);
+    while(1) {
+        printf("(whilekill) Running while\n");
+    }
     exit(1);
 }
 
 void simplekill() {
     send_signal(SIGNAL_KILL, getpid());
     sleep(2);
+    printf("(simplekill) Got past sleep");
     exit(1);
 }
 
 struct test {
     void (*f)(char *);
     char *s;
-} quicktests[] = {
+} tests[] = {
     {simplekill, "simplekill"},
     {whilekill, "whilekill"},
     {killself, "killself"},
     {killchild, "killchild"},
-    { 0, 0},
-};
-
-struct test slowtests[] = {    
     { 0, 0},
 };
 
@@ -102,21 +102,12 @@ runtests(struct test *tests, char *justone) {
 }
 
 int
-drivetests(int quick, int continuous, char *justone) {
+drivetests(int continuous, char *justone) {
     do {
         printf("usertests starting\n");
-        if (runtests(quicktests, justone)) {
+        if (runtests(tests, justone)) {
         if(continuous != 2) {
             return 1;
-        }
-        }
-        if(!quick) {
-        if (justone == 0)
-            printf("usertests slow tests starting\n");
-        if (runtests(slowtests, justone)) {
-            if(continuous != 2) {
-            return 1;
-            }
         }
         }
     } while(continuous);
@@ -127,12 +118,9 @@ int
 main(int argc, char *argv[])
 {
     int continuous = 0;
-    int quick = 0;
     char *justone = 0;
 
-    if(argc == 2 && strcmp(argv[1], "-q") == 0){
-        quick = 1;
-    } else if(argc == 2 && strcmp(argv[1], "-c") == 0){
+    if(argc == 2 && strcmp(argv[1], "-c") == 0){
         continuous = 1;
     } else if(argc == 2 && strcmp(argv[1], "-C") == 0){
         continuous = 2;
@@ -142,19 +130,9 @@ main(int argc, char *argv[])
         printf("Usage: usertests [-c] [-C] [-q] [testname]\n");
         exit(1);
     }
-    if (drivetests(quick, continuous, justone)) {
+    if (drivetests(continuous, justone)) {
         exit(1);
     }
-
-    // printf("usertests starting\n");
-    // printf("running simplekill\n");
-    // simplekill();
-    // printf("running whilekill\n");
-    // whilekill();
-    // printf("running killself\n");
-    // killself();
-    // printf("running killchild\n");
-    // killchild();
 
     printf("ALL TESTS PASSED\n");
     exit(0);
