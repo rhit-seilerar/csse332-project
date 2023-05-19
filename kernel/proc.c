@@ -19,6 +19,7 @@ extern void forkret(void);
 static void freeproc(struct proc *p);
 
 extern char trampoline[]; // trampoline.S
+extern char signalret[]; // signal.S
 
 // helps ensure that wakeups of wait()ing
 // parents are not lost. helps obey the
@@ -125,8 +126,8 @@ found:
   p->pid = allocpid();
   p->state = USED;
 
-  // Allocate a trapframe page
-  if(!(p->trapframe = (struct trapframe *)kalloc())) {
+  // Allocate a trapframe page and signal stack
+  if(!(p->trapframe = (struct trapframe *)kalloc()) || !(p->signaling.stack = kalloc())) {
     freeproc(p);
     release(&p->lock);
     return 0;
@@ -155,11 +156,11 @@ found:
 static void
 freeproc(struct proc *p)
 {
-  if(p->trapframe)
-    kfree((void*)p->trapframe);
+  if(p->trapframe) kfree((void*)p->trapframe);
   p->trapframe = 0;
-  if(p->pagetable)
-    proc_freepagetable(p->pagetable, p->sz);
+  if(p->signaling.stack) kfree(p->signaling.stack);
+  p->signaling.stack = 0;
+  if(p->pagetable) proc_freepagetable(p->pagetable, p->sz);
   p->pagetable = 0;
   p->sz = 0;
   p->pid = 0;
@@ -172,7 +173,7 @@ freeproc(struct proc *p)
 }
 
 // Create a user page table for a given process, with no user memory,
-// but with trampoline and trapframe pages.
+// but with trampoline, trapframe, and signaling pages.
 pagetable_t
 proc_pagetable(struct proc *p)
 {
@@ -202,6 +203,25 @@ proc_pagetable(struct proc *p)
     return 0;
   }
   
+  // map the signal return code in signal.S to the page under TRAPFRAME
+  if(mappages(pagetable, TRAPFRAME-PGSIZE, PGSIZE,
+              (uint64)signalret, PTE_R | PTE_X | PTE_U) < 0){
+    uvmunmap(pagetable, TRAMPOLINE, 1, 0);
+    uvmunmap(pagetable, TRAPFRAME, 1, 0);
+    uvmfree(pagetable, 0);
+    return 0;
+  }
+  
+  // map the signal stack in signal.S to the page under ret
+  if(mappages(pagetable, TRAPFRAME-2*PGSIZE, PGSIZE,
+              (uint64)(p->signaling.stack), PTE_R | PTE_W | PTE_U) < 0){
+    uvmunmap(pagetable, TRAMPOLINE, 1, 0);
+    uvmunmap(pagetable, TRAPFRAME, 1, 0);
+    uvmunmap(pagetable, TRAPFRAME-PGSIZE, 1, 0);
+    uvmfree(pagetable, 0);
+    return 0;
+  }
+  
   return pagetable;
 }
 
@@ -212,6 +232,8 @@ proc_freepagetable(pagetable_t pagetable, uint64 sz)
 {
   uvmunmap(pagetable, TRAMPOLINE, 1, 0);
   uvmunmap(pagetable, TRAPFRAME, 1, 0);
+  uvmunmap(pagetable, TRAPFRAME-PGSIZE, 1, 0);
+  uvmunmap(pagetable, TRAPFRAME-2*PGSIZE, 1, 0);
   uvmfree(pagetable, sz);
 }
 
@@ -439,11 +461,11 @@ SIGNAL_HANDLER(signal_handler_ignore) {
 }
 
 SIGNAL_HANDLER(signal_handler_terminate) {
-  return kill(mycpu()->proc->pid);
+  return 1;
 }
 
 SIGNAL_HANDLER(signal_handler_KILL) {
-  return kill(mycpu()->proc->pid);
+  return 1;
 }
 
 // Per-CPU process scheduler.
@@ -493,13 +515,13 @@ scheduler(void)
               
               // Dispatch catchable signals
               default: {
-                p->trapframe = (struct trapframe){
-                  .epc = p->signaling.handlers[signal.type].proc;
-                  .ra = (uint64)&signalret;
-                  .sp = p->signaling.handlers[signal.type].stack;
-                  .gp = tf.gp;
-                  .a0 = signal.type;
-                  .a1 = signal.pid;
+                *p->trapframe = (struct trapframe){
+                  .epc = (uint64)p->signaling.handlers[signal.type],
+                  .ra = (uint64)signalret,
+                  .sp = (uint64)p->signaling.stack,
+                  .gp = tf.gp,
+                  .a0 = signal.type,
+                  .a1 = signal.sender_pid,
                 };
                 swtch(&c->context, &p->context);
                 p->context = ctx;
@@ -509,6 +531,10 @@ scheduler(void)
             
             p->signaling.read = (p->signaling.read+1) % MAX_SIGNALS;
             p->signaling.count--;
+            
+            if(!result) {
+              kill(mycpu()->proc->pid);
+            }
             
             if(p->killed || p->state == ZOMBIE) {
               cont = 1;

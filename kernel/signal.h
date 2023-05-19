@@ -49,15 +49,13 @@ enum signal_flags {
 };
 
 #define MAX_SIGNALS 512
-#define MAX_CATCHABLE 256
+#define MAX_CATCHABLE 512
 _Static_assert(SIGNAL_CATCHABLE_COUNT <= MAX_CATCHABLE, "too many signals are defined");
 
 typedef struct signaling {
   signal_t queue[MAX_SIGNALS];
-  struct {
-    signal_handler_t proc;
-    void *stack;
-  } handlers[MAX_CATCHABLE];
+  signal_handler_t handlers[MAX_CATCHABLE];
+  void *stack;
   int read;
   int write;
   int count;
