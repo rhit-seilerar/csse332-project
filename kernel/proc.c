@@ -21,6 +21,12 @@ static void freeproc(struct proc *p);
 extern char trampoline[]; // trampoline.S
 extern char signalret[]; // signal.S
 
+static inline void
+__wfi(void)
+{
+  asm volatile("wfi");
+}
+
 // helps ensure that wakeups of wait()ing
 // parents are not lost. helps obey the
 // memory model when using p->parent.
@@ -480,11 +486,13 @@ scheduler(void)
 {
   struct proc *p;
   struct cpu *c = mycpu();
+  int num_run = 0;
   
   c->proc = 0;
   for(;;){
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
+    num_run = 0;
 
     for(p = proc; p < &proc[NPROC]; p++) {
       
@@ -493,6 +501,7 @@ scheduler(void)
         // Switch to chosen process.  It is the process's job
         // to release its lock and then reacquire it
         // before jumping back to us.
+        num_run++;
         p->state = RUNNING;
         c->proc = p;
 
@@ -555,6 +564,10 @@ scheduler(void)
         c->proc = 0;
       }
       release(&p->lock);
+    }
+
+    if (!num_run) {
+      __wfi();
     }
   }
 }
