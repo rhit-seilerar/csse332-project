@@ -149,14 +149,3 @@ userret:
         # return to user mode and user pc.
         # usertrapret() set up sstatus and sepc.
         sret
-
-# Return from a signal
-.globl signalret
-signalret:
-        # a2 is set to zero when the signal begins, so we'll
-        # use it as the return register
-        mv a2, a0
-        # We jump into yield to get back to the scheduler
-        li a7, SYS_yield
-        ecall
-        # should not get here
