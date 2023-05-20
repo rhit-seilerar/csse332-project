@@ -100,7 +100,7 @@ struct proc {
 
   // this is stuff for the alarm signal
   uint8 alarm_set;
-  uint64 ticks_at_alarm;
+  uint64 cycles_at_alarm;
 
   // wait_lock must be held when using this:
   struct proc *parent;         // Parent process

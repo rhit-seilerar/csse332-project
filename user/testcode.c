@@ -127,7 +127,7 @@ struct test {
     // {fullqueue, "fullqueue"},
     // {falsesignal, "falsesignal"},
     // {customsignal, "customsignal"},
-    // {simplealarm, "simplealarm"},
+    {simplealarm, "simplealarm"},
     // {whilealarm, "whilealarm"},
     // {printaddress,"printaddress"},
     { 0, 0},
