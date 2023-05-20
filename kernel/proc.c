@@ -27,6 +27,12 @@ static void freeproc(struct proc *p);
 extern char trampoline[]; // trampoline.S
 extern char signalret[]; // signal.S
 
+static inline void
+__wfi(void)
+{
+  asm volatile("wfi");
+}
+
 // helps ensure that wakeups of wait()ing
 // parents are not lost. helps obey the
 // memory model when using p->parent.
@@ -596,10 +602,15 @@ scheduler(void)
   void *kstack = kalloc();
   if(!kstack) panic("scheduler kstack");
   
+  // Number of processes that were scheduled in one loop, to know
+  // whether we should call 'wfi'.
+  int num_run = 0;
+  
   c->proc = 0;
   for(;;){
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
+    num_run = 0;
 
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
@@ -608,8 +619,14 @@ scheduler(void)
         // Switch to chosen process.  It is the process's job
         // to release its lock and then reacquire it
         // before jumping back to us.
+        num_run++;
         p->state = RUNNING;
         c->proc = p;
+
+        if (p->alarm_set && p->cycles_at_alarm >= *((uint64 *) CLINT_MTIME)) {
+          p->alarm_set = 0;
+          send_signal((signal_t){.type=SIGNAL_ALARM, .sender_pid=p->pid}, p->pid);
+        }
         
         // acquire(&tickslock);
         // int localticks = ticks;
@@ -632,6 +649,10 @@ scheduler(void)
       }
       
       release(&p->lock);
+    }
+
+    if (!num_run) {
+      __wfi();
     }
   }
   
@@ -895,17 +916,19 @@ int send_signal(signal_t signal, int receiver_pid) {
 
 int alarm(struct proc *alarmed_proc, unsigned int seconds) {
   int remaining_seconds = 0;
+  uint64 cycles_needed = seconds * 10 * 1000000; // 1000000 is about a 10th of a second of cycles
 
   acquire(&(alarmed_proc->lock));
-  acquire(&(tickslock));
   if (alarmed_proc->alarm_set == 1) {
-    alarmed_proc->alarm_set = 0;
-    remaining_seconds = (alarmed_proc->ticks_at_alarm - ticks) / 10;
+    if (seconds == 0) {
+      alarmed_proc->alarm_set = 0;
+    }
+    remaining_seconds = (alarmed_proc->cycles_at_alarm - *((uint64*) CLINT_MTIME)) / 10 / 1000000;
+    alarmed_proc->cycles_at_alarm = *((uint64*) CLINT_MTIME) + cycles_needed;
   } else {
     alarmed_proc->alarm_set = 1;
-    alarmed_proc->ticks_at_alarm = seconds * 10 + ticks;
+    alarmed_proc->cycles_at_alarm = seconds * 10 + ticks;
   }
-  release(&(tickslock));
   release(&(alarmed_proc->lock));
   return remaining_seconds;
 }

@@ -9,17 +9,24 @@
 #include "kernel/riscv.h"
 #include "kernel/signal.h"
 
+// Basis for this file was taken from the usertests.c file.
+
 int pid;
 
-void killself() {
-    if(!(pid = fork())) {
-        send_signal(SIGNAL_KILL, getpid(), 0);
-        sleep(1);
-        printf("(killself) Self is alive\n");
-        exit(1);
-    } else {
-        wait(&pid);
+void simplekill() {
+    send_signal(SIGNAL_KILL, getpid(), 0);
+    sleep(2);
+    printf("(simplekill) Got past sleep");
+    exit(1);
+}
+
+void whilekill() {
+    send_signal(SIGNAL_KILL, getpid(), 0);
+    // sleep(1);
+    while(1) {
+        printf("(whilekill) Running while\n");
     }
+    exit(1);
 }
 
 void killchild() {
@@ -32,20 +39,81 @@ void killchild() {
     }
 }
 
-void whilekill() {
-    send_signal(SIGNAL_KILL, getpid(), 0);
-    sleep(1);
-    while(1) {
-        printf("(whilekill) Running while\n");
+void killself() {
+    if(!(pid = fork())) {
+        send_signal(SIGNAL_KILL, getpid(), 0);
+        sleep(1);
+        printf("(killself) Self is alive\n");
+        exit(1);
+    } else {
+        wait(&pid);
     }
+}
+
+SIGNAL_HANDLER(print_message) {
+    printf("You got a message from %d: %d\n", signal.sender_pid, signal.payload);
+    yield();
+    return 0;
+}
+
+void customsignal() {
+    set_signal_handler(SIGNAL_MESSAGE, print_message);
+    send_signal(SIGNAL_MESSAGE, getpid(), 509);
+    sleep(4);
+    
     exit(1);
 }
 
-void simplekill() {
-    send_signal(SIGNAL_KILL, getpid(), 0);
-    sleep(2);
-    printf("(simplekill) Got past sleep");
+SIGNAL_HANDLER(simple_alarm) {
+    printf("(simple alarm) Alarm has been received.\n");
+    yield();
+    return 0;
+}
+
+void simplealarm() {
+    set_signal_handler(SIGNAL_ALARM, simple_alarm);
+    alarm(1);
+    sleep(4);
     exit(1);
+}
+
+SIGNAL_HANDLER(while_alarm) {
+    printf("(while alarm) Alarm has been received.\n");
+    yield();
+    return 0;
+}
+
+void whilealarm() {
+    set_signal_handler(SIGNAL_ALARM, simple_alarm);
+    alarm(1);
+    while(1) {}
+    exit(1);
+}
+
+void printaddress() {
+    printf("\n\n%p\n",&simplekill);
+    printf("%p\n",&whilekill);
+    printf("%p\n",&killself);
+    printf("%p\n",&killchild);
+    printf("%p\n",&customsignal);
+    printf("%p\n",&simplealarm);
+    printf("%p\n\n",&whilealarm);
+}
+
+void fullqueue() {
+    int count = 1;
+    while(!send_signal(SIGNAL_ALARM, getpid(), 0)) {
+        count++;
+    }
+    printf(" (Full queue count = %d)  ", count);
+    exit(0);
+}
+
+void falsesignal() {
+    int out;
+    out = send_signal(SIGNAL_ALARM, 1, 0);
+    printf("%d\n", out);
+    exit(out != 2);
 }
 
 struct test {
@@ -56,6 +124,12 @@ struct test {
     {whilekill, "whilekill"},
     {killself, "killself"},
     {killchild, "killchild"},
+    // {fullqueue, "fullqueue"},
+    // {falsesignal, "falsesignal"},
+    // {customsignal, "customsignal"},
+    {simplealarm, "simplealarm"},
+    // {whilealarm, "whilealarm"},
+    // {printaddress,"printaddress"},
     { 0, 0},
 };
 
