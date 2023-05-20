@@ -10,12 +10,15 @@ typedef struct signal {
 #define SIGNAL_HANDLER(name) int name(signal_t signal)
 typedef int (*signal_handler_t)(signal_t);
 
+#define SIGNAL_HANDLER_IGNORE (-1)
+#define SIGNAL_HANDLER_TERMINATE (-2)
+
 //
 // X-Macro for defining signals
 //
 #define SIGNALS \
-  CATCHABLE_SIGNAL(ALARM, ignore) /* Timed interrupt */ \
-  CATCHABLE_SIGNAL(MESSAGE, ignore) /* Send arbitrary data to another process */ \
+  CATCHABLE_SIGNAL(ALARM, IGNORE) /* Timed interrupt */ \
+  CATCHABLE_SIGNAL(MESSAGE, IGNORE) /* Send arbitrary data to another process */ \
   UNCATCHABLE_SIGNAL(KILL) /* Unconditionally kill a process */ \
 
 enum signal_type {

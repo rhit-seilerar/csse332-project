@@ -6,6 +6,12 @@
 #include "proc.h"
 #include "defs.h"
 
+#if ENABLE_DEBUG_PROC_PRINT
+#define DEBUG_PROC_PRINT(...) printf(__VA_ARGS__)
+#else
+#define DEBUG_PROC_PRINT(...)
+#endif
+
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
@@ -147,6 +153,13 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
+  #define CATCHABLE_SIGNAL(name, handler) \
+    p->signaling.handlers[SIGNAL_##name] = (signal_handler_t)SIGNAL_HANDLER_##handler;
+  #define UNCATCHABLE_SIGNAL(name)
+  SIGNALS
+  #undef CATCHABLE_SIGNAL
+  #undef UNCATCHABLE_SIGNAL
+
   return p;
 }
 
@@ -204,7 +217,7 @@ proc_pagetable(struct proc *p)
   }
   
   // map the signal return code in signal.S to the page under TRAPFRAME
-  if(mappages(pagetable, TRAPFRAME-PGSIZE, PGSIZE,
+  if(mappages(pagetable, SIGNALRET, PGSIZE,
               (uint64)signalret, PTE_R | PTE_X | PTE_U) < 0){
     uvmunmap(pagetable, TRAMPOLINE, 1, 0);
     uvmunmap(pagetable, TRAPFRAME, 1, 0);
@@ -213,11 +226,11 @@ proc_pagetable(struct proc *p)
   }
   
   // map the signal stack in signal.S to the page under ret
-  if(mappages(pagetable, TRAPFRAME-2*PGSIZE, PGSIZE,
+  if(mappages(pagetable, SIGNALSTACK, PGSIZE,
               (uint64)(p->signaling.stack), PTE_R | PTE_W | PTE_U) < 0){
     uvmunmap(pagetable, TRAMPOLINE, 1, 0);
     uvmunmap(pagetable, TRAPFRAME, 1, 0);
-    uvmunmap(pagetable, TRAPFRAME-PGSIZE, 1, 0);
+    uvmunmap(pagetable, SIGNALRET, 1, 0);
     uvmfree(pagetable, 0);
     return 0;
   }
@@ -457,15 +470,112 @@ wait(uint64 addr)
 }
 
 SIGNAL_HANDLER(signal_handler_ignore) {
+  DEBUG_PROC_PRINT("(%d:%d) Ignored!\n", cpuid(), myproc()->pid);
   return 0;
 }
 
 SIGNAL_HANDLER(signal_handler_terminate) {
+  DEBUG_PROC_PRINT("(%d:%d) Terminated!\n", cpuid(), myproc()->pid);
   return 1;
 }
 
 SIGNAL_HANDLER(signal_handler_KILL) {
   return 1;
+}
+
+void
+handle_signals(void *kstack, struct proc *p)
+{
+  struct cpu *c = mycpu();
+  int cid = cpuid(); (void)cid;
+  
+  if(p->signaling.count) {
+    // Back up old versions of the trapframe, context, and stacks
+    // so we can return to the main process seamlessly
+    struct trapframe tf = *p->trapframe;
+    struct context ctx = p->context;
+    uint64 old_kstack = p->kstack;
+    p->kstack = (uint64)kstack;
+    
+    DEBUG_PROC_PRINT("(%d:%d) Entering signaling loop\n", cid, p->pid);
+    
+    while(p->signaling.count > 0) {
+      // Pop the signal from the queue
+      signal_t signal = p->signaling.queue[p->signaling.read];
+      p->signaling.read = (p->signaling.read+1) % MAX_SIGNALS;
+      p->signaling.count--;
+      DEBUG_PROC_PRINT("(%d:%d) Handling Signal ID %d\n", cid, p->pid, signal.type);
+      
+      int result = 0;
+      if(signal.type < SIGNAL_CATCHABLE_COUNT) {
+        // If we can catch the signal, it can have a custom handler
+        // So, we check if it's a predefined handler or a custom one
+        switch((uint64)p->signaling.handlers[signal.type]) {
+          case SIGNAL_HANDLER_IGNORE: result = signal_handler_ignore(signal); break;
+          case SIGNAL_HANDLER_TERMINATE: result = signal_handler_terminate(signal); break;
+          default: {
+            // This signal has a custom handler, so we need to jump into
+            // usermode to handle it. We'll hijack the yield function to
+            // release the lock and jump into usertrapret, which will
+            // have a modified trapframe to jump into the handler.
+            //
+            // When the handler returns, it'll yield back into the
+            // scheduler so that other signals can be handled.
+            
+            // Reset and use the dummy kernel stack
+            memmove(kstack, (void*)old_kstack, PGSIZE);
+            p->context.sp = (uint64)kstack + (p->context.sp - old_kstack);
+            
+            // Reset the signal stack
+            memset(p->signaling.stack, 0, PGSIZE);
+            
+            // Set up the trapframe to point to the handler
+            *p->trapframe = (struct trapframe){
+              .epc = (uint64)p->signaling.handlers[signal.type],
+              .ra = (uint64)SIGNALRET,
+              .sp = (uint64)SIGNALSTACK+PGSIZE,
+              .gp = tf.gp,
+              .a0 = ((uint64)signal.sender_pid << 32) | signal.type,
+              .a1 = signal.payload,
+            };
+            
+            // Hijack yield to return to usermode
+            swtch(&c->context, &p->context);
+            p->state = RUNNING; // Was set to RUNNABLE by yield
+            
+            // We stored the result in a6 so we don't misinterpret
+            // the signal type argument as the return value (in case
+            // the user yielded manually).
+            result = p->trapframe->a6;
+            p->context = ctx;
+          }
+        }
+      } else {
+        // We can't catch the signal, so we'll call its dedicated
+        // handler.
+        switch(signal.type) {
+          #define CATCHABLE_SIGNAL(...)
+          #define UNCATCHABLE_SIGNAL(name) \
+          case SIGNAL_##name: result = signal_handler_##name(signal); break;
+          SIGNALS
+          #undef UNCATCHABLE_SIGNAL
+          #undef CATCHABLE_SIGNAL
+        }
+      }
+      
+      // Nonzero handler results indicate an error, so we terminate
+      // the process if that happens. Also, if it's been killed, we
+      // don't care about handling any other signals.
+      DEBUG_PROC_PRINT("(%d:%d) Post-Signal\n", cid, p->pid);
+      if(result) p->killed = 1;
+      if(p->killed || p->state == ZOMBIE) break;
+    }
+    
+    // Reset the backed up data before returning to the scheduler
+    DEBUG_PROC_PRINT("(%d:%d) Exiting signaling loop\n", cid, p->pid);
+    *p->trapframe = tf;
+    p->kstack = old_kstack;
+  }
 }
 
 // Per-CPU process scheduler.
@@ -480,6 +590,11 @@ scheduler(void)
 {
   struct proc *p;
   struct cpu *c = mycpu();
+  int cid = cpuid(); (void)cid;
+  
+  // Dummy kernel stack to not corrupt the main one
+  void *kstack = kalloc();
+  if(!kstack) panic("scheduler kstack");
   
   c->proc = 0;
   for(;;){
@@ -487,76 +602,40 @@ scheduler(void)
     intr_on();
 
     for(p = proc; p < &proc[NPROC]; p++) {
-      
       acquire(&p->lock);
+      
       if(p->state == RUNNABLE) {
         // Switch to chosen process.  It is the process's job
         // to release its lock and then reacquire it
         // before jumping back to us.
         p->state = RUNNING;
         c->proc = p;
-
-        acquire(&tickslock);
-        if (p->alarm_set && p->ticks_at_alarm >= ticks) {
-          release(&tickslock);
-          p->alarm_set = 0;
-          send_signal((signal_t){.type=SIGNAL_ALARM, .sender_pid=p->pid}, p->pid);
-        } else {
-          release(&tickslock);
-        }
         
-        if(p->signaling.count) {
-          struct trapframe tf = *p->trapframe;
-          struct context ctx = p->context;
-          
-          while(p->signaling.count > 0) {
-            signal_t signal = p->signaling.queue[p->signaling.read];
-            
-            int result;
-            switch(signal.type) {
-              // Specially handle the uncatchable signals
-              #define CATCHABLE_SIGNAL(...)
-              #define UNCATCHABLE_SIGNAL(name) \
-              case SIGNAL_##name: result = signal_handler_##name(signal); break;
-              SIGNALS
-              #undef UNCATCHABLE_SIGNAL
-              #undef CATCHABLE_SIGNAL
-              
-              // Dispatch catchable signals
-              default: {
-                *p->trapframe = (struct trapframe){
-                  .epc = (uint64)p->signaling.handlers[signal.type],
-                  .ra = (uint64)signalret,
-                  .sp = (uint64)p->signaling.stack,
-                  .gp = tf.gp,
-                  .a0 = signal.type,
-                  .a1 = signal.sender_pid,
-                };
-                swtch(&c->context, &p->context);
-                p->context = ctx;
-                result = p->trapframe->a2;
-              }
-            }
-            
-            p->signaling.read = (p->signaling.read+1) % MAX_SIGNALS;
-            p->signaling.count--;
-            
-            if(result) p->killed = 1;
-            if(p->killed || p->state == ZOMBIE) break;
-          }
-          
-          *p->trapframe = tf;
-        }
+        // acquire(&tickslock);
+        // int localticks = ticks;
+        // release(&tickslock);
+        // if (p->alarm_set && p->ticks_at_alarm >= localticks) {
+        //   p->alarm_set = 0;
+        //   send_signal((signal_t){.type=SIGNAL_ALARM, .sender_pid=p->pid}, p->pid);
+        // }
         
+        // Go and process any queued signals
+        handle_signals(kstack, p);
+        
+        // Actually run the process
+        DEBUG_PROC_PRINT("(%d:%d) Scheduling to %p\n", cid, p->pid, p->context.ra);
         swtch(&c->context, &p->context);
         
         // Process is done running for now.
         // It should have changed its p->state before coming back.
         c->proc = 0;
       }
+      
       release(&p->lock);
     }
   }
+  
+  kfree(kstack);
 }
 
 // Switch to scheduler.  Must hold only p->lock
@@ -581,9 +660,11 @@ sched(void)
   if(intr_get())
     panic("sched interruptible");
 
+  DEBUG_PROC_PRINT("(%d:%d) Entering sched\n", cpuid(), p->pid);
   intena = mycpu()->intena;
   swtch(&p->context, &mycpu()->context);
   mycpu()->intena = intena;
+  DEBUG_PROC_PRINT("(%d:%d) Exiting sched\n", cpuid(), p->pid);
 }
 
 // Give up the CPU for one scheduling round.
@@ -593,7 +674,9 @@ yield(void)
   struct proc *p = myproc();
   acquire(&p->lock);
   p->state = RUNNABLE;
+  DEBUG_PROC_PRINT("(%d:%d) Yielding\n", cpuid(), p->pid);
   sched();
+  DEBUG_PROC_PRINT("(%d:%d) Post-Yielding\n", cpuid(), p->pid);
   release(&p->lock);
 }
 
@@ -638,9 +721,11 @@ sleep(void *chan, struct spinlock *lk)
   // Go to sleep.
   p->chan = chan;
   p->state = SLEEPING;
-
+  
+  DEBUG_PROC_PRINT("(%d:%d) Sleeping\n", cpuid(), p->pid);
   sched();
-
+  DEBUG_PROC_PRINT("(%d:%d) Post-Sleeping\n", cpuid(), p->pid);
+  
   // Tidy up.
   p->chan = 0;
 
@@ -660,6 +745,7 @@ wakeup(void *chan)
     if(p != myproc()){
       acquire(&p->lock);
       if(p->state == SLEEPING && p->chan == chan) {
+        DEBUG_PROC_PRINT("(x:%d) Waking up\n", p->pid);
         p->state = RUNNABLE;
       }
       release(&p->lock);

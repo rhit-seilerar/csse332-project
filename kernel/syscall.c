@@ -130,7 +130,7 @@ static uint64 (*syscalls[])(void) = {
 [SYS_link]               sys_link,
 [SYS_mkdir]              sys_mkdir,
 [SYS_close]              sys_close,
-[SYS_close]              sys_yield,
+[SYS_yield]              sys_yield,
 [SYS_send_signal]        sys_send_signal,
 [SYS_set_signal_handler] sys_set_signal_handler,
 [SYS_alarm]              sys_alarm
