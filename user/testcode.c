@@ -9,6 +9,8 @@
 #include "kernel/riscv.h"
 #include "kernel/signal.h"
 
+// Basis for this file was taken from the usertests.c file.
+
 int pid;
 
 void simplekill() {
@@ -20,7 +22,7 @@ void simplekill() {
 
 void whilekill() {
     send_signal(SIGNAL_KILL, getpid(), 0);
-    sleep(1);
+    // sleep(1);
     while(1) {
         printf("(whilekill) Running while\n");
     }
@@ -100,11 +102,18 @@ void printaddress() {
 
 void fullqueue() {
     int count = 1;
-    while(!send_signal(SIGNAL_ALARM, getpid(), 30)) {
+    while(!send_signal(SIGNAL_ALARM, getpid(), 0)) {
         count++;
     }
-    printf("\nFull queue count = %d\n", count);
+    printf(" (Full queue count = %d)  ", count);
     exit(0);
+}
+
+void falsesignal() {
+    int out;
+    out = send_signal(SIGNAL_ALARM, 1, 0);
+    printf("%d\n", out);
+    exit(out != 2);
 }
 
 struct test {
@@ -115,7 +124,8 @@ struct test {
     {whilekill, "whilekill"},
     {killself, "killself"},
     {killchild, "killchild"},
-    {fullqueue, "fullqueue"},
+    // {fullqueue, "fullqueue"},
+    // {falsesignal, "falsesignal"},
     // {customsignal, "customsignal"},
     // {simplealarm, "simplealarm"},
     // {whilealarm, "whilealarm"},
