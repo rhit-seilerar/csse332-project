@@ -35,23 +35,31 @@ SIGNAL_HANDLER(repeated_alarm) {
 }
 
 int main(int argc, char **argv) {
-  // killself();
-  // killchild();
-  
-  // sleep(1);
-  
   printf("Proc Starting!\n");
   
-  set_signal_handler(SIGNAL_MESSAGE, print_message);
-  set_signal_handler(SIGNAL_ALARM, repeated_alarm);
+  killself();
+  killchild();
   
-  // send_signal(SIGNAL_MESSAGE, getpid(), 509);
-  // sleep(2);
+  sleep(1);
+  
+  set_signal_handler(SIGNAL_MESSAGE, print_message);
+  send_signal(SIGNAL_MESSAGE, getpid(), 509);
+  sleep(2);
   
   alarm(2);
-  for(int i = 0; i < 10; i++) {
-    sleep(2);
-  }
+  printf("wake up...\n");
+  set_signal_handler(SIGNAL_ALARM, repeated_alarm);
+  sleep(4);
+  printf("snoozing...\n");
+  set_signal_handler(SIGNAL_ALARM, SIGNAL_HANDLER_IGNORE);
+  sleep(4);
+  alarm(2);
+  printf("wake up...\n");
+  set_signal_handler(SIGNAL_ALARM, repeated_alarm);
+  sleep(4);
+  printf("terminating...\n");
+  set_signal_handler(SIGNAL_ALARM, SIGNAL_HANDLER_TERMINATE);
+  sleep(4);
   
   printf("Proc Exiting!\n");
   exit(0);

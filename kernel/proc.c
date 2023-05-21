@@ -555,8 +555,8 @@ int handle_signals(void *kstack, struct proc *p) {
         // If we can catch the signal, it can have a custom handler
         // So, we check if it's a predefined handler or a custom one
         switch((uint64)p->signaling.handlers[signal.type]) {
-          case SIGNAL_HANDLER_IGNORE: result = signal_handler_ignore(signal); break;
-          case SIGNAL_HANDLER_TERMINATE: result = signal_handler_terminate(signal); break;
+          case (uint64)SIGNAL_HANDLER_IGNORE: result = signal_handler_ignore(signal); break;
+          case (uint64)SIGNAL_HANDLER_TERMINATE: result = signal_handler_terminate(signal); break;
           default: {
             // This signal has a custom handler, so we need to jump into
             // usermode to handle it. We'll hijack the yield function to

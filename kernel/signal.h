@@ -10,8 +10,8 @@ typedef struct signal {
 #define SIGNAL_HANDLER(name) int name(signal_t signal)
 typedef int (*signal_handler_t)(signal_t);
 
-#define SIGNAL_HANDLER_IGNORE (-1)
-#define SIGNAL_HANDLER_TERMINATE (-2)
+#define SIGNAL_HANDLER_IGNORE    ((signal_handler_t)(-1))
+#define SIGNAL_HANDLER_TERMINATE ((signal_handler_t)(-2))
 
 //
 // X-Macro for defining signals

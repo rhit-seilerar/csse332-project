@@ -98,21 +98,14 @@ void printaddress() {
     printf("%p\n\n",&whilealarm);
 }
 
-// This simply can't be filled fast enough, so we don't have a
-// rigorous test for this.
-// void fullqueue() {
-//     int count, res;
-//     for(count = 0; count < MAX_SIGNALS && !(res = send_signal(SIGNAL_MESSAGE, getpid(), 0)); count++);
-//     if(count < MAX_SIGNALS) {
-//         printf("(full queue) Count %d < MAX_SIGNALS\n", count);
-//         exit(1);
-//     } else if(!res) {
-//         printf("(full queue) Send succeeded\n");
-//         exit(2);
-//     } else {
-//         exit(0);
-//     }
-// }
+void fullqueue() {
+    int count = 1;
+    while(!send_signal(SIGNAL_ALARM, getpid(), 0)) {
+        count++;
+    }
+    printf(" (Full queue count = %d)  ", count);
+    exit(0);
+}
 
 void falsesignal() {
     int out = send_signal(SIGNAL_ALARM, -1, 0);
@@ -129,7 +122,7 @@ struct test {
     {whilekill, "whilekill", -1},
     {killself, "killself", 0},
     {killchild, "killchild", -1},
-    // {fullqueue, "fullqueue", 0}, // Invalid test
+    {fullqueue, "fullqueue", 0},
     {falsesignal, "falsesignal", 2},
     {customsignal, "customsignal"},
     {simplealarm, "simplealarm", 0},
