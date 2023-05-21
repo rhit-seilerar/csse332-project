@@ -36,6 +36,8 @@ void killchild() {
         exit(1);
     } else {
         send_signal(SIGNAL_KILL, pid, 0);
+        wait(&pid);
+        exit(pid);
     }
 }
 
@@ -58,8 +60,7 @@ SIGNAL_HANDLER(print_message) {
 void customsignal() {
     set_signal_handler(SIGNAL_MESSAGE, print_message);
     send_signal(SIGNAL_MESSAGE, getpid(), 509);
-    sleep(4);
-    
+    sleep(2);
     exit(1);
 }
 
@@ -97,20 +98,26 @@ void printaddress() {
     printf("%p\n\n",&whilealarm);
 }
 
-void fullqueue() {
-    int count = 1;
-    while(!send_signal(SIGNAL_ALARM, getpid(), 0)) {
-        count++;
-    }
-    printf(" (Full queue count = %d)  ", count);
-    exit(0);
-}
+// This simply can't be filled fast enough, so we don't have a
+// rigorous test for this.
+// void fullqueue() {
+//     int count, res;
+//     for(count = 0; count < MAX_SIGNALS && !(res = send_signal(SIGNAL_MESSAGE, getpid(), 0)); count++);
+//     if(count < MAX_SIGNALS) {
+//         printf("(full queue) Count %d < MAX_SIGNALS\n", count);
+//         exit(1);
+//     } else if(!res) {
+//         printf("(full queue) Send succeeded\n");
+//         exit(2);
+//     } else {
+//         exit(0);
+//     }
+// }
 
 void falsesignal() {
-    int out;
-    out = send_signal(SIGNAL_ALARM, 1, 0);
+    int out = send_signal(SIGNAL_ALARM, -1, 0);
     printf("%d\n", out);
-    exit(out != 2);
+    exit(out);
 }
 
 struct test {
@@ -118,17 +125,17 @@ struct test {
     char *s;
     int e;
 } tests[] = {
-    // {simplekill, "simplekill", -1},
-    // {whilekill, "whilekill", -1},
-    // {killself, "killself"},
-    // {killchild, "killchild"},
-    // {fullqueue, "fullqueue"},
-    // {falsesignal, "falsesignal"},
-    // {customsignal, "customsignal"},
-    // {simplealarm, "simplealarm"},
+    {simplekill, "simplekill", -1},
+    {whilekill, "whilekill", -1},
+    {killself, "killself", 0},
+    {killchild, "killchild", -1},
+    // {fullqueue, "fullqueue", 0}, // Invalid test
+    {falsesignal, "falsesignal", 2},
+    {customsignal, "customsignal"},
+    {simplealarm, "simplealarm", 0},
     {whilealarm, "whilealarm", 0},
-    // {printaddress,"printaddress"},
-    {0},
+    // {printaddress,"printaddress"}, // Diagnostics
+    {0}, // Null terminator
 };
 
 //
