@@ -29,15 +29,17 @@ SIGNAL_HANDLER(print_message) {
 }
 
 int main(int argc, char **argv) {
-  killself();
-  killchild();
+  // killself();
+  // killchild();
   
-  sleep(1);
+  // sleep(1);
+  
+  printf("Proc Starting!\n");
   
   set_signal_handler(SIGNAL_MESSAGE, print_message);
   send_signal(SIGNAL_MESSAGE, getpid(), 509);
   sleep(2);
   
-  printf("Proc Exiting!\n");
+  // printf("Proc Exiting!\n");
   exit(0);
 }

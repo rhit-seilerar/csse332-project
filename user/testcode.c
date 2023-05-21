@@ -65,7 +65,6 @@ void customsignal() {
 
 SIGNAL_HANDLER(simple_alarm) {
     printf("(simple alarm) Alarm has been received.\n");
-    yield();
     return 0;
 }
 
@@ -78,7 +77,6 @@ void simplealarm() {
 
 SIGNAL_HANDLER(while_alarm) {
     printf("(while alarm) Alarm has been received.\n");
-    yield();
     return 0;
 }
 
@@ -128,7 +126,7 @@ struct test {
     // {falsesignal, "falsesignal"},
     // {customsignal, "customsignal"},
     // {simplealarm, "simplealarm"},
-    // {whilealarm, "whilealarm"},
+    {whilealarm, "whilealarm", 0},
     // {printaddress,"printaddress"},
     {0},
 };

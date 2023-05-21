@@ -63,7 +63,7 @@ sys_sleep(void)
       release(&tickslock);
       return -1;
     }
-    sleep(&ticks, &tickslock);
+    if(sleep(&ticks, &tickslock)) break;
   }
   release(&tickslock);
   return 0;

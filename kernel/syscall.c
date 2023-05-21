@@ -149,7 +149,7 @@ syscall(void)
     int result = syscalls[num]();
     
     // We don't want to overwrite a0 when we hijack yield for signaling
-    if(num != SYS_yield) p->trapframe->a0 = result;
+    if(!p->signaling.in_handler) p->trapframe->a0 = result;
   } else {
     printf("%d %s: unknown sys call %d\n",
             p->pid, p->name, num);

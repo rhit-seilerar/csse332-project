@@ -56,6 +56,7 @@ typedef struct signaling {
   int read;
   int write;
   int count;
+  int in_handler;
 } signaling_t;
 
 #endif

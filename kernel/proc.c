@@ -531,6 +531,8 @@ int handle_signals(void *kstack, struct proc *p) {
   int cid = cpuid(); (void)cid;
   int killed = 0;
   
+  p->signaling.in_handler = 1;
+  
   if(p->signaling.count) {
     // Back up old versions of the trapframe, context, and stacks
     // so we can return to the main process seamlessly
@@ -625,6 +627,8 @@ int handle_signals(void *kstack, struct proc *p) {
     *p->trapframe = tf;
     p->kstack = old_kstack;
   }
+  
+  p->signaling.in_handler = 0;
   
   return killed;
 }
@@ -770,8 +774,9 @@ forkret(void)
 }
 
 // Atomically release lock and sleep on chan.
-// Reacquires lock when awakened.
-void
+// Reacquires lock when awakened. Returns whether
+// the sleep is returning into a signal handler;
+int
 sleep(void *chan, struct spinlock *lk)
 {
   struct proc *p = myproc();
@@ -793,6 +798,7 @@ sleep(void *chan, struct spinlock *lk)
   DEBUG_PROC_PRINT("(%d:%d) Sleeping\n", cpuid(), p->pid);
   sched();
   DEBUG_PROC_PRINT("(%d:%d) Post-Sleeping\n", cpuid(), p->pid);
+  int in_handler = p->signaling.in_handler;
   
   // Tidy up.
   p->chan = 0;
@@ -800,6 +806,8 @@ sleep(void *chan, struct spinlock *lk)
   // Reacquire original lock.
   release(&p->lock);
   acquire(lk);
+  
+  return in_handler;
 }
 
 // Wake up all processes sleeping on chan.
