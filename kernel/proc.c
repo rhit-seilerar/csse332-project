@@ -623,7 +623,8 @@ scheduler(void)
         p->state = RUNNING;
         c->proc = p;
 
-        if (p->alarm_set && p->cycles_at_alarm >= *((uint64 *) CLINT_MTIME)) {
+        uint64 local_ticks = ticks;
+        if (p->alarm_set && p->cycles_at_alarm >= local_ticks) {
           p->alarm_set = 0;
           send_signal((signal_t){.type=SIGNAL_ALARM, .sender_pid=p->pid}, p->pid);
         }
@@ -916,18 +917,19 @@ int send_signal(signal_t signal, int receiver_pid) {
 
 int alarm(struct proc *alarmed_proc, unsigned int seconds) {
   int remaining_seconds = 0;
-  uint64 cycles_needed = seconds * 10 * 1000000; // 1000000 is about a 10th of a second of cycles
-
+  uint64 cycles_needed = seconds * 10;
+  uint64 local_ticks = ticks;
+  
   acquire(&(alarmed_proc->lock));
   if (alarmed_proc->alarm_set == 1) {
     if (seconds == 0) {
       alarmed_proc->alarm_set = 0;
     }
-    remaining_seconds = (alarmed_proc->cycles_at_alarm - *((uint64*) CLINT_MTIME)) / 10 / 1000000;
-    alarmed_proc->cycles_at_alarm = *((uint64*) CLINT_MTIME) + cycles_needed;
+    remaining_seconds = alarmed_proc->cycles_at_alarm - local_ticks / 10;
+    alarmed_proc->cycles_at_alarm = local_ticks + cycles_needed;
   } else {
     alarmed_proc->alarm_set = 1;
-    alarmed_proc->cycles_at_alarm = seconds * 10 + ticks;
+    alarmed_proc->cycles_at_alarm = seconds * 10 + local_ticks;
   }
   release(&(alarmed_proc->lock));
   return remaining_seconds;
