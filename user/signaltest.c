@@ -28,6 +28,12 @@ SIGNAL_HANDLER(print_message) {
   return 0;
 }
 
+SIGNAL_HANDLER(repeated_alarm) {
+  printf("Beep beep beep!\n");
+  alarm(2);
+  return 0;
+}
+
 int main(int argc, char **argv) {
   // killself();
   // killchild();
@@ -37,9 +43,16 @@ int main(int argc, char **argv) {
   printf("Proc Starting!\n");
   
   set_signal_handler(SIGNAL_MESSAGE, print_message);
-  send_signal(SIGNAL_MESSAGE, getpid(), 509);
-  sleep(2);
+  set_signal_handler(SIGNAL_ALARM, repeated_alarm);
   
-  // printf("Proc Exiting!\n");
+  // send_signal(SIGNAL_MESSAGE, getpid(), 509);
+  // sleep(2);
+  
+  alarm(2);
+  for(int i = 0; i < 10; i++) {
+    sleep(2);
+  }
+  
+  printf("Proc Exiting!\n");
   exit(0);
 }
