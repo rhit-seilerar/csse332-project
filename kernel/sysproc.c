@@ -91,7 +91,13 @@ sys_uptime(void)
   return xticks;
 }
 
-uint64 sys_yield(void) { return yield(), 0; }
+uint64
+sys_yield(void)
+{
+  intr_off();
+  yield();
+  return 0;
+}
 
 uint64
 sys_send_signal(void)

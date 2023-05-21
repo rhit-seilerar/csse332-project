@@ -146,7 +146,10 @@ syscall(void)
   if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
     // Use num to lookup the system call function for num, call it,
     // and store its return value in p->trapframe->a0
-    p->trapframe->a0 = syscalls[num]();
+    int result = syscalls[num]();
+    
+    // We don't want to overwrite a0 when we hijack yield for signaling
+    if(num != SYS_yield) p->trapframe->a0 = result;
   } else {
     printf("%d %s: unknown sys call %d\n",
             p->pid, p->name, num);

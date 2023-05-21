@@ -25,16 +25,14 @@ void killchild(void) {
 
 SIGNAL_HANDLER(print_message) {
   printf("You got a message from %d: %d\n", signal.sender_pid, signal.payload);
-  asm volatile("li a6,0\nli a7,22\necall");
-  // yield();
   return 0;
 }
 
 int main(int argc, char **argv) {
-  // killself();
-  // killchild();
+  killself();
+  killchild();
   
-  // sleep(1);
+  sleep(1);
   
   set_signal_handler(SIGNAL_MESSAGE, print_message);
   send_signal(SIGNAL_MESSAGE, getpid(), 509);

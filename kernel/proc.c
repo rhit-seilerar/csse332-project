@@ -152,7 +152,7 @@ found:
     release(&p->lock);
     return 0;
   }
-
+  
   // Set up new context to start executing at forkret,
   // which returns to user space.
   memset(&p->context, 0, sizeof(p->context));
@@ -251,8 +251,8 @@ proc_freepagetable(pagetable_t pagetable, uint64 sz)
 {
   uvmunmap(pagetable, TRAMPOLINE, 1, 0);
   uvmunmap(pagetable, TRAPFRAME, 1, 0);
-  uvmunmap(pagetable, TRAPFRAME-PGSIZE, 1, 0);
-  uvmunmap(pagetable, TRAPFRAME-2*PGSIZE, 1, 0);
+  uvmunmap(pagetable, SIGNALRET, 1, 0);
+  uvmunmap(pagetable, SIGNALSTACK, 1, 0);
   uvmfree(pagetable, sz);
 }
 
@@ -426,6 +426,42 @@ exit(int status)
   panic("zombie exit");
 }
 
+// This is a reduced exit() for exiting from a signal,
+// since the proc is already locked and we won't be
+// switching to the scheduler (we're already in it!)
+void
+exit_from_signal(int status, struct proc *p)
+{
+  if(p == initproc) panic("init exiting");
+  
+  // Close all open files.
+  for(int fd = 0; fd < NOFILE; fd++){
+    if(p->ofile[fd]){
+      struct file *f = p->ofile[fd];
+      fileclose(f);
+      p->ofile[fd] = 0;
+    }
+  }
+
+  begin_op();
+  iput(p->cwd);
+  end_op();
+  p->cwd = 0;
+
+  acquire(&wait_lock);
+
+  // Give any children to init.
+  reparent(p);
+
+  // Parent might be sleeping in wait().
+  wakeup(p->parent);
+  
+  p->xstate = status;
+  p->state = ZOMBIE;
+
+  release(&wait_lock);
+}
+
 // Wait for a child process to exit and return its pid.
 // Return -1 if this process has no children.
 int
@@ -489,11 +525,11 @@ SIGNAL_HANDLER(signal_handler_KILL) {
   return 1;
 }
 
-void
-handle_signals(void *kstack, struct proc *p)
-{
+// Returns 1 if the process is no longer runnable
+int handle_signals(void *kstack, struct proc *p) {
   struct cpu *c = mycpu();
   int cid = cpuid(); (void)cid;
+  int killed = 0;
   
   if(p->signaling.count) {
     // Back up old versions of the trapframe, context, and stacks
@@ -547,12 +583,18 @@ handle_signals(void *kstack, struct proc *p)
             
             // Hijack yield to return to usermode
             swtch(&c->context, &p->context);
-            p->state = RUNNING; // Was set to RUNNABLE by yield
             
-            // We stored the result in a6 so we don't misinterpret
-            // the signal type argument as the return value (in case
-            // the user yielded manually).
-            result = p->trapframe->a6;
+            if(p->state == RUNNABLE) {
+              // yield sets state to runnable.
+              p->state = RUNNING;
+              result = p->trapframe->a0;
+            } else if(p->state == SLEEPING) {
+              // We don't want to sleep in signal handlers, as it would
+              // greatly complicate resuming, so we'll just kill it if
+              // that happens.
+              result = -1;
+            }
+            
             p->context = ctx;
           }
         }
@@ -573,8 +615,9 @@ handle_signals(void *kstack, struct proc *p)
       // the process if that happens. Also, if it's been killed, we
       // don't care about handling any other signals.
       DEBUG_PROC_PRINT("(%d:%d) Post-Signal\n", cid, p->pid);
-      if(result) p->killed = 1;
-      if(p->killed || p->state == ZOMBIE) break;
+      if(result) exit_from_signal(result, p);
+      killed = p->killed || p->state == ZOMBIE;
+      if(killed) break;
     }
     
     // Reset the backed up data before returning to the scheduler
@@ -582,6 +625,8 @@ handle_signals(void *kstack, struct proc *p)
     *p->trapframe = tf;
     p->kstack = old_kstack;
   }
+  
+  return killed;
 }
 
 // Per-CPU process scheduler.
@@ -637,11 +682,12 @@ scheduler(void)
         // }
         
         // Go and process any queued signals
-        handle_signals(kstack, p);
+        if(!handle_signals(kstack, p)) {
+          // Actually run the process
+          DEBUG_PROC_PRINT("(%d:%d) Scheduling to %p\n", cid, p->pid, p->context.ra);
+          swtch(&c->context, &p->context);
+        }
         
-        // Actually run the process
-        DEBUG_PROC_PRINT("(%d:%d) Scheduling to %p\n", cid, p->pid, p->context.ra);
-        swtch(&c->context, &p->context);
         
         // Process is done running for now.
         // It should have changed its p->state before coming back.
