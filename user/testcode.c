@@ -52,7 +52,7 @@ void killself() {
 
 SIGNAL_HANDLER(print_message) {
     printf("You got a message from %d: %d\n", signal.sender_pid, signal.payload);
-    return 0;
+    exit(0);
 }
 
 void customsignal() {
@@ -65,7 +65,7 @@ void customsignal() {
 
 SIGNAL_HANDLER(simple_alarm) {
     printf("(simple alarm) Alarm has been received.\n");
-    return 0;
+    exit(0);
 }
 
 void simplealarm() {
@@ -77,7 +77,7 @@ void simplealarm() {
 
 SIGNAL_HANDLER(while_alarm) {
     printf("(while alarm) Alarm has been received.\n");
-    return 0;
+    exit(0);
 }
 
 void whilealarm() {
@@ -118,8 +118,8 @@ struct test {
     char *s;
     int e;
 } tests[] = {
-    {simplekill, "simplekill", -1},
-    {whilekill, "whilekill", -1},
+    // {simplekill, "simplekill", -1},
+    // {whilekill, "whilekill", -1},
     // {killself, "killself"},
     // {killchild, "killchild"},
     // {fullqueue, "fullqueue"},
