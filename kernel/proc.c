@@ -979,7 +979,7 @@ int alarm(struct proc *alarmed_proc, unsigned int seconds) {
     if (seconds == 0) {
       alarmed_proc->alarm_set = 0;
     }
-    remaining_seconds = alarmed_proc->(cycles_at_alarm - local_ticks) / 10;
+    remaining_seconds = (alarmed_proc->cycles_at_alarm - local_ticks) / 10;
     alarmed_proc->cycles_at_alarm = local_ticks + cycles_needed;
   } else {
     alarmed_proc->alarm_set = 1;
