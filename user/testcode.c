@@ -82,7 +82,7 @@ SIGNAL_HANDLER(while_alarm) {
 }
 
 void whilealarm() {
-    set_signal_handler(SIGNAL_ALARM, simple_alarm);
+    set_signal_handler(SIGNAL_ALARM, while_alarm);
     alarm(1);
     while(1) {}
     exit(1);
