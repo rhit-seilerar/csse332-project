@@ -81,7 +81,7 @@ SIGNAL_HANDLER(while_alarm) {
 }
 
 void whilealarm() {
-    set_signal_handler(SIGNAL_ALARM, simple_alarm);
+    set_signal_handler(SIGNAL_ALARM, while_alarm);
     alarm(1);
     while(1) {}
     exit(1);
@@ -125,7 +125,7 @@ struct test {
     // {fullqueue, "fullqueue"},
     // {falsesignal, "falsesignal"},
     // {customsignal, "customsignal"},
-    // {simplealarm, "simplealarm"},
+    {simplealarm, "simplealarm", 0},
     {whilealarm, "whilealarm", 0},
     // {printaddress,"printaddress"},
     {0},
