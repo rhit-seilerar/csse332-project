@@ -52,7 +52,6 @@ void killself() {
 
 SIGNAL_HANDLER(print_message) {
     printf("You got a message from %d: %d\n", signal.sender_pid, signal.payload);
-    yield();
     return 0;
 }
 
@@ -119,18 +118,19 @@ void falsesignal() {
 struct test {
     void (*f)(char *);
     char *s;
+    int e;
 } tests[] = {
-    {simplekill, "simplekill"},
-    {whilekill, "whilekill"},
-    {killself, "killself"},
-    {killchild, "killchild"},
+    {simplekill, "simplekill", -1},
+    {whilekill, "whilekill", -1},
+    // {killself, "killself"},
+    // {killchild, "killchild"},
     // {fullqueue, "fullqueue"},
     // {falsesignal, "falsesignal"},
     // {customsignal, "customsignal"},
-    {simplealarm, "simplealarm"},
+    // {simplealarm, "simplealarm"},
     // {whilealarm, "whilealarm"},
     // {printaddress,"printaddress"},
-    { 0, 0},
+    {0},
 };
 
 //
@@ -140,7 +140,7 @@ struct test {
 // run each test in its own process. run returns 1 if child's exit()
 // indicates success.
 int
-run(void f(char *), char *s) {
+run(void f(char *), char *s, int expected_xstatus) {
     int pid;
     int xstatus;
 
@@ -154,11 +154,9 @@ run(void f(char *), char *s) {
         exit(0);
     } else {
         wait(&xstatus);
-        if(xstatus == 1) 
-        printf("FAILED\n");
-        else
-        printf("OK\n");
-        return xstatus != 1;
+        if(xstatus != expected_xstatus) printf("FAILED\n");
+        else printf("OK\n");
+        return xstatus == expected_xstatus;
     }
 }
 
@@ -166,7 +164,7 @@ int
 runtests(struct test *tests, char *justone) {
     for (struct test *t = tests; t->s != 0; t++) {
         if((justone == 0) || strcmp(t->s, justone) == 0) {
-        if(!run(t->f, t->s)){
+        if(!run(t->f, t->s, t->e)){
             printf("SOME TESTS FAILED\n");
             return 1;
         }

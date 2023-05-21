@@ -518,11 +518,11 @@ SIGNAL_HANDLER(signal_handler_ignore) {
 
 SIGNAL_HANDLER(signal_handler_terminate) {
   DEBUG_PROC_PRINT("(%d:%d) Terminated!\n", cpuid(), myproc()->pid);
-  return 1;
+  return -1;
 }
 
 SIGNAL_HANDLER(signal_handler_KILL) {
-  return 1;
+  return -1;
 }
 
 // Returns 1 if the process is no longer runnable

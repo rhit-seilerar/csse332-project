@@ -36,7 +36,7 @@ int main(int argc, char **argv) {
   
   set_signal_handler(SIGNAL_MESSAGE, print_message);
   send_signal(SIGNAL_MESSAGE, getpid(), 509);
-  yield();
+  sleep(2);
   
   printf("Proc Exiting!\n");
   exit(0);
